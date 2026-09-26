@@ -7,101 +7,278 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  BUYER
-  SELLER
-  ADMIN
+model admin_activity_log {
+  id         Int       @id @default(autoincrement())
+  user_id    Int?
+  action     String    @db.VarChar(100)
+  ip_address String?   @db.VarChar(45)
+  user_agent String?
+  details    Json?
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  users      users?    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_admin_activity_log_user_id")
 }
 
-enum ListingStatus {
-  PENDING
-  ACTIVE
-  SOLD
-  REJECTED
-  HIDDEN
+model admin_sessions {
+  id            Int       @id @default(autoincrement())
+  user_id       Int?
+  session_token String    @unique @db.VarChar(255)
+  ip_address    String?   @db.VarChar(45)
+  user_agent    String?
+  is_valid      Boolean?  @default(true)
+  created_at    DateTime? @default(now()) @db.Timestamp(6)
+  expires_at    DateTime  @db.Timestamp(6)
+  users         users?    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([session_token], map: "idx_admin_sessions_token")
+  @@index([user_id], map: "idx_admin_sessions_user_id")
 }
 
-enum Category {
-  DOG
-  CAT
-  BIRD
-  FISH
-  SMALL_PET
-  TURTLE
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model driver_earnings {
+  id         Int
+  driver_id  Int?
+  order_id   Int?
+  amount     Decimal   @db.Decimal(10, 2)
+  commission Decimal?  @db.Decimal(10, 2)
+  status     String?   @default("pending") @db.VarChar(50)
+  paid_at    DateTime? @db.Timestamp(6)
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+
+  @@ignore
 }
 
-model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  phone         String?   @unique
-  name          String?
-  role          Role      @default(BUYER)
-  walletBalance Int       @default(0)
-  avatarUrl     String?
-  isBanned      Boolean   @default(false)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model driver_location_history {
+  id         Int
+  driver_id  Int?
+  latitude   Decimal?  @db.Decimal(10, 8)
+  longitude  Decimal?  @db.Decimal(11, 8)
+  address    String?
+  street     String?   @db.VarChar(255)
+  city       String?   @db.VarChar(100)
+  created_at DateTime? @default(now()) @db.Timestamp(6)
 
-  listings Listing[] @relation("SellerListings")
-  payments Payment[]
-  unlocks  Unlock[]
+  @@ignore
 }
 
-model Listing {
-  id            String        @id @default(cuid())
-  sellerId      String
-  title         String
-  category      Category
-  breed         String
-  price         Int
-  age           String?
-  description   String
-  location      String
-  images        String[]
-  status        ListingStatus @default(PENDING)
-  rejectionNote String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+model driver_notifications {
+  id         Int       @id @default(autoincrement())
+  driver_id  Int
+  title      String    @db.VarChar(255)
+  message    String?
+  type       String?   @default("general") @db.VarChar(50)
+  is_read    Boolean?  @default(false)
+  data       Json?
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  updated_at DateTime? @default(now()) @db.Timestamp(6)
 
-  seller   User      @relation("SellerListings", fields: [sellerId], references: [id], onDelete: Cascade)
-  payments Payment[]
-  unlocks  Unlock[]
-
-  @@index([category])
-  @@index([location])
-  @@index([sellerId])
-  @@index([status])
+  @@index([created_at(sort: Desc)], map: "idx_driver_notifications_created_at")
+  @@index([driver_id], map: "idx_driver_notifications_driver_id")
 }
 
-model Payment {
-  id                String   @id @default(cuid())
-  buyerId           String
-  listingId         String
-  amountPaise       Int
-  razorpayOrderId   String   @unique
-  razorpayPaymentId String?
-  razorpaySignature String?
-  status            String   @default("created")
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  buyer   User    @relation(fields: [buyerId], references: [id], onDelete: Cascade)
-  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
-
-  @@index([buyerId])
-  @@index([listingId])
+model drivers {
+  id                   Int       @id @default(autoincrement())
+  name                 String    @db.VarChar(100)
+  email                String?   @db.VarChar(100)
+  phone                String    @db.VarChar(15)
+  password             String?   @db.VarChar(255)
+  vehicle_number       String?   @db.VarChar(50)
+  vehicle_type         String?   @db.VarChar(50)
+  is_available         Boolean?  @default(true)
+  current_latitude     Decimal?  @db.Decimal(10, 8)
+  current_longitude    Decimal?  @db.Decimal(11, 8)
+  last_location_update DateTime? @db.Timestamp(6)
+  fcm_token            String?
+  created_at           DateTime? @default(now()) @db.Timestamp(6)
+  is_active            Boolean?  @default(true)
+  total_deliveries     Int?      @default(0)
+  rating               Decimal?  @default(5.0) @db.Decimal(2, 1)
+  updated_at           DateTime? @default(now()) @db.Timestamp(6)
+  current_address      String?
+  current_city         String?   @db.VarChar(100)
+  current_street       String?   @db.VarChar(255)
+  push_token           String?   @db.VarChar(255)
+  is_on_break          Boolean?  @default(false)
+  break_started_at     DateTime? @db.Timestamp(6)
+  total_rating         Decimal?  @default(5.0) @db.Decimal
+  total_ratings_count  Int?      @default(0)
 }
 
-model Unlock {
-  id        String   @id @default(cuid())
-  buyerId   String
-  listingId String
-  paymentId String?  @unique
-  createdAt DateTime @default(now())
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model orders {
+  id                      Int       @default(autoincrement())
+  user_id                 Int?
+  order_number            String    @db.VarChar(50)
+  total_amount            Decimal   @db.Decimal(10, 2)
+  status                  String?   @default("pending") @db.VarChar(20)
+  payment_status          String?   @default("pending") @db.VarChar(20)
+  payment_id              String?   @db.VarChar(100)
+  razorpay_order_id       String?   @db.VarChar(100)
+  shipping_address        String?
+  products                Json?
+  created_at              DateTime? @default(now()) @db.Timestamp(6)
+  updated_at              DateTime? @default(now()) @db.Timestamp(6)
+  delivery_latitude       Decimal?  @db.Decimal(10, 8)
+  delivery_longitude      Decimal?  @db.Decimal(11, 8)
+  driver_id               Int?
+  estimated_delivery      DateTime? @db.Timestamp(6)
+  payment_method          String?   @default("cod") @db.VarChar(50)
+  driver_name             String?   @db.VarChar(100)
+  customer_name           String?   @db.VarChar(255)
+  customer_email          String?   @db.VarChar(255)
+  customer_phone          String?   @db.VarChar(20)
+  delivery_fee            Decimal?  @default(0) @db.Decimal(10, 2)
+  shipping_full_name      String?   @db.VarChar(100)
+  shipping_mobile         String?   @db.VarChar(15)
+  shipping_address_line1  String?
+  shipping_address_line2  String?
+  shipping_landmark       String?   @db.VarChar(100)
+  shipping_city           String?   @db.VarChar(50)
+  shipping_state          String?   @db.VarChar(50)
+  shipping_country        String?   @db.VarChar(50)
+  shipping_pincode        String?   @db.VarChar(10)
+  proof_photo_url         String?
+  delivery_notes          String?
+  reject_reason           String?
+  rejected_at             DateTime? @db.Timestamp(6)
+  cod_amount              Decimal?  @default(0) @db.Decimal
+  cod_collected           Boolean?  @default(false)
+  customer_rating         Int?
+  customer_rating_comment String?
+  rated_at                DateTime? @db.Timestamp(6)
+  delivery_otp            String?
 
-  buyer   User    @relation(fields: [buyerId], references: [id], onDelete: Cascade)
-  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  @@ignore
+}
 
-  @@unique([buyerId, listingId])
-  @@index([buyerId])
+model otps {
+  id         Int       @id @default(autoincrement())
+  contact    String    @db.VarChar(255)
+  type       String?   @default("email") @db.VarChar(20)
+  otp        String    @db.VarChar(6)
+  purpose    String?   @default("login") @db.VarChar(20)
+  is_admin   Boolean?  @default(false)
+  expires_at DateTime  @db.Timestamp(6)
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model products {
+  id               Int       @id @default(autoincrement())
+  name             String    @db.VarChar(200)
+  description      String?
+  price            Decimal   @db.Decimal(10, 2)
+  compare_at_price Decimal?  @db.Decimal(10, 2)
+  category         String?   @db.VarChar(100)
+  sub_category     String?   @db.VarChar(100)
+  brand            String?   @db.VarChar(100)
+  stock            Int?      @default(0)
+  sku              String?   @unique @db.VarChar(50)
+  image_url        String?
+  images           String[]
+  rating           Decimal?  @default(0) @db.Decimal(3, 2)
+  num_reviews      Int?      @default(0)
+  is_featured      Boolean?  @default(false)
+  is_active        Boolean?  @default(true)
+  created_at       DateTime? @default(now()) @db.Timestamp(6)
+  updated_at       DateTime? @default(now()) @db.Timestamp(6)
+  deleted_at       DateTime? @db.Timestamp(6)
+  image_url_2      String?
+  image_url_3      String?
+  compare_price    Decimal?  @db.Decimal(10, 2)
+  model            String?   @db.VarChar(100)
+  warranty         String?   @db.VarChar(100)
+  weight           String?   @db.VarChar(50)
+  dimensions       String?   @db.VarChar(100)
+  material         String?   @db.VarChar(100)
+  features         String?
+  review_count     Int?      @default(0)
+  tags             String?
+  meta_title       String?   @db.VarChar(255)
+  meta_description String?
+  seo_keywords     String?
+  image_url_4      String?
+  image_url_5      String?
+  has_colors       Boolean?  @default(false)
+  colors           Json?     @default("[]")
+  has_sizes        Boolean?  @default(false)
+  sizes            Json?     @default("[]")
+  name_ta          String?
+  description_ta   String?
+  name_hi          String?
+  description_hi   String?
+}
+
+model two_factor_codes {
+  id         Int       @id @default(autoincrement())
+  user_id    Int?
+  code       String    @db.VarChar(6)
+  purpose    String?   @default("admin_login") @db.VarChar(20)
+  expires_at DateTime  @db.Timestamp(6)
+  used       Boolean?  @default(false)
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  users      users?    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_two_factor_codes_user_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model users {
+  id                 Int                  @id @default(autoincrement())
+  name               String               @db.VarChar(100)
+  email              String               @unique @db.VarChar(100)
+  password           String?              @db.VarChar(255)
+  role               String?              @default("user") @db.VarChar(20)
+  is_active          Boolean?             @default(true)
+  last_login         DateTime?            @db.Timestamp(6)
+  created_at         DateTime?            @default(now()) @db.Timestamp(6)
+  updated_at         DateTime?            @default(now()) @db.Timestamp(6)
+  phone              String?              @db.VarChar(20)
+  preferred_language String?              @default("en") @db.VarChar(10)
+  full_name          String?              @db.VarChar(100)
+  mobile             String?              @db.VarChar(15)
+  alternate_mobile   String?              @db.VarChar(15)
+  address_line1      String?
+  address_line2      String?
+  landmark           String?              @db.VarChar(100)
+  city               String?              @db.VarChar(50)
+  district           String?              @db.VarChar(50)
+  state              String?              @db.VarChar(50)
+  country            String?              @default("India") @db.VarChar(50)
+  pincode            String?              @db.VarChar(10)
+  latitude           Decimal?             @db.Decimal(10, 8)
+  longitude          Decimal?             @db.Decimal(11, 8)
+  address_type       String?              @default("Home") @db.VarChar(20)
+  address_updated_at DateTime?            @default(now()) @db.Timestamp(6)
+  is_admin           Boolean?             @default(false)
+  login_attempts     Int?                 @default(0)
+  locked_until       DateTime?            @db.Timestamp(6)
+  two_factor_enabled Boolean?             @default(false)
+  two_factor_secret  String?              @db.VarChar(255)
+  admin_activity_log admin_activity_log[]
+  admin_sessions     admin_sessions[]
+  two_factor_codes   two_factor_codes[]
+  wishlists          wishlists[]
+
+  @@index([city], map: "idx_users_city")
+  @@index([pincode], map: "idx_users_pincode")
+  @@index([state], map: "idx_users_state")
+}
+
+model wishlists {
+  id            Int       @id @default(autoincrement())
+  user_id       Int?
+  product_id    Int
+  product_name  String?   @db.VarChar(255)
+  product_price Decimal?  @db.Decimal(10, 2)
+  product_image String?
+  added_at      DateTime? @default(now()) @db.Timestamp(6)
+  created_at    DateTime? @default(now()) @db.Timestamp(6)
+  updated_at    DateTime? @default(now()) @db.Timestamp(6)
+  users         users?    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, product_id])
+  @@index([product_id], map: "idx_wishlists_product_id")
+  @@index([user_id], map: "idx_wishlists_user_id")
 }
