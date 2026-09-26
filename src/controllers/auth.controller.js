@@ -1,163 +1,11 @@
-// // const prisma = require('../prisma');
-// // const { generateOtp, verifyOtp } = require('../utils/otp');
-// // const { signToken } = require('../utils/jwt');
-// // const { sendOtpEmail } = require('../utils/email');
+import prisma from "../prisma.js";
+import { sendOTPEmail } from "../utils/email.js";
 
-// // // POST /api/auth/send-otp  { email, name? }
-// // exports.sendOtp = async (req, res) => {
-// //   const { email, name } = req.body;
-// //   if (!email || !email.includes('@')) {
-// //     return res.status(400).json({ error: 'Valid email required' });
-// //   }
+// =====================================================
+// OTP STORE
+// =====================================================
 
-// //   const otp = generateOtp(email.toLowerCase().trim());
-
-// //   try {
-// //     await sendOtpEmail(email.toLowerCase().trim(), otp, name);
-// //     res.json({ success: true, message: `OTP sent to ${email}` });
-// //   } catch (e) {
-// //     console.error('Send OTP error:', e);
-// //     res.status(500).json({ error: 'Failed to send email. Check EMAIL_USER / EMAIL_PASS.' });
-// //   }
-// // };
-
-// // // POST /api/auth/verify-otp  { email, otp, name?, role? }
-// // exports.verifyOtp = async (req, res) => {
-// //   const { email, otp, name, role } = req.body;
-// //   if (!email || !otp) {
-// //     return res.status(400).json({ error: 'Email and OTP required' });
-// //   }
-
-// //   const cleanEmail = email.toLowerCase().trim();
-
-// //   if (!verifyOtp(cleanEmail, otp)) {
-// //     return res.status(400).json({ error: 'Invalid or expired OTP' });
-// //   }
-
-// //   let user = await prisma.user.findUnique({ where: { email: cleanEmail } });
-// //   if (!user) {
-// //     user = await prisma.user.create({
-// //       data: {
-// //         email: cleanEmail,
-// //         phone: null, // email-based signup
-// //         name: name || cleanEmail.split('@')[0],
-// //         role: role === 'SELLER' ? 'SELLER' : 'BUYER',
-// //       },
-// //     });
-// //   }
-
-// //   const token = signToken(user.id);
-// //   res.json({
-// //     token,
-// //     user: {
-// //       id: user.id,
-// //       email: user.email,
-// //       phone: user.phone,
-// //       name: user.name,
-// //       role: user.role,
-// //       walletBalance: user.walletBalance,
-// //     },
-// //   });
-// // };
-
-// // // GET /api/auth/me
-// // exports.me = async (req, res) => {
-// //   res.json({
-// //     user: {
-// //       id: req.user.id,
-// //       email: req.user.email,
-// //       phone: req.user.phone,
-// //       name: req.user.name,
-// //       role: req.user.role,
-// //       walletBalance: req.user.walletBalance,
-// //     },
-// //   });
-// // };
-// const prisma = require('../prisma');
-// const { generateOtp, verifyOtp } = require('../utils/otp');
-// const { signToken } = require('../utils/jwt');
-// const { sendOtpEmail } = require('../utils/email');
-
-// // POST /api/auth/send-otp
-// exports.sendOtp = async (req, res) => {
-//   const { email, name } = req.body;
-//   if (!email || !email.includes('@')) {
-//     return res.status(400).json({ error: 'Valid email required' });
-//   }
-
-//   const cleanEmail = email.toLowerCase().trim();
-//   const otp = generateOtp(cleanEmail);
-
-//   // ⭐ Respond immediately with the OTP for dev testing
-//   // (like your e-commerce app's testOTP)
-//   res.json({
-//     success: true,
-//     message: `OTP sent to ${cleanEmail}`,
-//     testOTP: process.env.NODE_ENV === 'development' ? otp : undefined,
-//   });
-
-//   // Send email in background — doesn't block the response
-//   sendOtpEmail(cleanEmail, otp, name).catch((e) => {
-//     console.error('📧 Email error:', e.message);
-//   });
-// };
-
-// // POST /api/auth/verify-otp
-// exports.verifyOtp = async (req, res) => {
-//   const { email, otp, name, role } = req.body;
-//   if (!email || !otp) {
-//     return res.status(400).json({ error: 'Email and OTP required' });
-//   }
-
-//   const cleanEmail = email.toLowerCase().trim();
-
-//   if (!verifyOtp(cleanEmail, otp)) {
-//     return res.status(400).json({ error: 'Invalid or expired OTP' });
-//   }
-
-//   let user = await prisma.user.findUnique({ where: { email: cleanEmail } });
-//   if (!user) {
-//     user = await prisma.user.create({
-//       data: {
-//         email: cleanEmail,
-//         phone: null,
-//         name: name || cleanEmail.split('@')[0],
-//         role: role === 'SELLER' ? 'SELLER' : 'BUYER',
-//       },
-//     });
-//   }
-
-//   const token = signToken(user.id);
-//   res.json({
-//     token,
-//     user: {
-//       id: user.id,
-//       email: user.email,
-//       phone: user.phone,
-//       name: user.name,
-//       role: user.role,
-//       walletBalance: user.walletBalance,
-//     },
-//   });
-// };
-
-// // GET /api/auth/me
-// exports.me = async (req, res) => {
-//   res.json({
-//     user: {
-//       id: req.user.id,
-//       email: req.user.email,
-//       phone: req.user.phone,
-//       name: req.user.name,
-//       role: req.user.role,
-//       walletBalance: req.user.walletBalance,
-//     },
-//   });
-// };
-const prisma = require("../prisma");
-const { generateOtp, verifyOtp } = require("../utils/otp");
-const { signToken } = require("../utils/jwt");
-const { sendOtpEmail } = require("../utils/email");
+const otpStore = new Map();
 
 // =====================================================
 // SEND OTP
@@ -179,73 +27,77 @@ export const sendOTP = async (req, res) => {
       });
     }
 
-    const cleanEmail =
-      String(email)
-        .trim()
-        .toLowerCase();
+    const cleanEmail = String(email)
+      .trim()
+      .toLowerCase();
 
-    const otp =
-      Math.floor(
-        100000 +
-        Math.random() * 900000
-      ).toString();
+    if (!cleanEmail.includes("@")) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid email is required",
+      });
+    }
 
+    // Generate 6 digit OTP
+    const otp = Math.floor(
+      100000 + Math.random() * 900000
+    ).toString();
+
+    // 10 minutes expiry
     const expiresAt =
-      Date.now() +
-      10 * 60 * 1000;
+      Date.now() + 10 * 60 * 1000;
 
-    otpStore.set(
-      cleanEmail,
-      {
-        otp,
-        expiresAt,
-        attempts: 0,
-        name: name || "",
-        phone: phone || "",
-      }
-    );
+    // Save OTP
+    otpStore.set(cleanEmail, {
+      otp,
+      expiresAt,
+      attempts: 0,
+      name: name || "",
+      phone: phone || "",
+    });
 
-    console.log(
-      "================================="
-    );
+    console.log("=================================");
+    console.log("📧 OTP GENERATED");
+    console.log("Email:", cleanEmail);
+    console.log("OTP:", otp);
+    console.log("=================================");
 
-    console.log(
-      "📧 OTP GENERATED"
-    );
+    // -------------------------------------------------
+    // Send email in background
+    // Don't block API response
+    // -------------------------------------------------
 
-    console.log(
-      "Email:",
-      cleanEmail
-    );
-
-    console.log(
-      "OTP:",
-      otp
-    );
-
-    console.log(
-      "================================="
-    );
-
-    // SEND EMAIL
-    await sendOTPEmail(
+    sendOTPEmail(
       cleanEmail,
       otp,
       name || cleanEmail.split("@")[0]
-    );
+    )
+      .then(() => {
+        console.log("✅ EMAIL SENT SUCCESSFULLY");
+      })
+      .catch((error) => {
+        console.error(
+          "❌ EMAIL ERROR:",
+          error.message
+        );
+      });
 
-    console.log(
-      "✅ EMAIL SENT SUCCESSFULLY"
-    );
+    // -------------------------------------------------
+    // Response immediately
+    // -------------------------------------------------
 
     return res.json({
       success: true,
-      message:
-        "OTP sent to your email",
+      message: "OTP sent to your email",
+
+      // DEV TESTING ONLY
+      testOTP:
+        process.env.NODE_ENV === "development"
+          ? otp
+          : undefined,
     });
 
   } catch (error) {
-
     console.error(
       "❌ SEND OTP ERROR:",
       error
@@ -253,8 +105,7 @@ export const sendOTP = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message:
-        "Unable to send OTP email",
+      message: "Unable to send OTP",
     });
   }
 };
@@ -264,7 +115,7 @@ export const sendOTP = async (req, res) => {
 // POST /api/auth/verify-otp
 // =====================================================
 
-exports.verifyOtp = async (req, res) => {
+export const verifyOTP = async (req, res) => {
   try {
     const {
       email,
@@ -281,43 +132,97 @@ exports.verifyOtp = async (req, res) => {
       });
     }
 
-    const cleanEmail = email.toLowerCase().trim();
+    const cleanEmail = String(email)
+      .trim()
+      .toLowerCase();
+
+    const cleanOtp = String(otp).trim();
 
     console.log("==============================");
     console.log("🔐 VERIFY OTP");
     console.log("Email:", cleanEmail);
-    console.log("OTP:", otp);
+    console.log("OTP:", cleanOtp);
     console.log("==============================");
 
-    // Verify OTP
-    const valid = verifyOtp(cleanEmail, otp);
+    // Get stored OTP
+    const stored = otpStore.get(cleanEmail);
 
-    if (!valid) {
+    if (!stored) {
       return res.status(400).json({
         success: false,
-        message: "Invalid or expired OTP",
+        message:
+          "No OTP found. Please request a new OTP.",
       });
     }
 
+    // Check expiry
+    if (Date.now() > stored.expiresAt) {
+      otpStore.delete(cleanEmail);
+
+      return res.status(400).json({
+        success: false,
+        message:
+          "OTP expired. Please request a new OTP.",
+      });
+    }
+
+    // Check attempts
+    if (stored.attempts >= 5) {
+      otpStore.delete(cleanEmail);
+
+      return res.status(400).json({
+        success: false,
+        message:
+          "Too many attempts. Please request a new OTP.",
+      });
+    }
+
+    // Check OTP
+    if (stored.otp !== cleanOtp) {
+      stored.attempts += 1;
+
+      otpStore.set(
+        cleanEmail,
+        stored
+      );
+
+      return res.status(400).json({
+        success: false,
+        message: "Invalid OTP",
+        attemptsLeft:
+          5 - stored.attempts,
+      });
+    }
+
+    // OTP correct
+    otpStore.delete(cleanEmail);
+
     console.log("✅ OTP VERIFIED");
 
-    // Find existing user
+    // =================================================
+    // FIND USER
+    // =================================================
+
     let user = await prisma.user.findUnique({
       where: {
         email: cleanEmail,
       },
     });
 
-    // Create user if doesn't exist
+    // =================================================
+    // CREATE USER
+    // =================================================
+
     if (!user) {
       user = await prisma.user.create({
         data: {
           email: cleanEmail,
 
-          phone: phone || null,
+          phone: phone || stored.phone || null,
 
           name:
             name ||
+            stored.name ||
             cleanEmail.split("@")[0],
 
           role:
@@ -338,13 +243,24 @@ exports.verifyOtp = async (req, res) => {
       );
     }
 
-    // Generate JWT
+    // =================================================
+    // JWT
+    // =================================================
+
+    const { signToken } =
+      await import("../utils/jwt.js");
+
     const token = signToken(user.id);
+
+    // =================================================
+    // RESPONSE
+    // =================================================
 
     return res.json({
       success: true,
 
-      message: "OTP verified successfully",
+      message:
+        "OTP verified successfully",
 
       token,
 
@@ -354,9 +270,11 @@ exports.verifyOtp = async (req, res) => {
         phone: user.phone,
         name: user.name,
         role: user.role,
-        walletBalance: user.walletBalance,
+        walletBalance:
+          user.walletBalance,
       },
     });
+
   } catch (error) {
     console.error(
       "❌ VERIFY OTP ERROR:",
@@ -376,7 +294,7 @@ exports.verifyOtp = async (req, res) => {
 // GET /api/auth/me
 // =====================================================
 
-exports.me = async (req, res) => {
+export const me = async (req, res) => {
   try {
     return res.json({
       success: true,
@@ -387,9 +305,11 @@ exports.me = async (req, res) => {
         phone: req.user.phone,
         name: req.user.name,
         role: req.user.role,
-        walletBalance: req.user.walletBalance,
+        walletBalance:
+          req.user.walletBalance,
       },
     });
+
   } catch (error) {
     console.error(
       "❌ GET USER ERROR:",
