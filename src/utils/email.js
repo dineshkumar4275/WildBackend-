@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer";
+const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -18,23 +18,28 @@ const transporter = nodemailer.createTransport({
 });
 
 // =====================================================
-// VERIFY SMTP CONFIG
+// VERIFY SMTP CONNECTION
 // =====================================================
 
-export async function verifyEmailTransporter() {
+async function verifyEmailConnection() {
   try {
+    if (!process.env.SMTP_USER) {
+      console.error("❌ SMTP_USER is not configured");
+      return false;
+    }
+
+    if (!process.env.SMTP_PASS) {
+      console.error("❌ SMTP_PASS is not configured");
+      return false;
+    }
+
     await transporter.verify();
 
-    console.log(
-      "✅ SMTP connection successful"
-    );
+    console.log("✅ SMTP connection successful");
 
     return true;
   } catch (error) {
-    console.error(
-      "❌ SMTP connection failed:",
-      error.message
-    );
+    console.error("❌ SMTP connection failed:", error.message);
 
     return false;
   }
@@ -44,26 +49,20 @@ export async function verifyEmailTransporter() {
 // SEND OTP EMAIL
 // =====================================================
 
-export async function sendOTPEmail(
+async function sendOTPEmail(
   email,
   otp,
   name = "User"
 ) {
   if (!process.env.SMTP_USER) {
-    throw new Error(
-      "SMTP_USER is not configured"
-    );
+    throw new Error("SMTP_USER is not configured");
   }
 
   if (!process.env.SMTP_PASS) {
-    throw new Error(
-      "SMTP_PASS is not configured"
-    );
+    throw new Error("SMTP_PASS is not configured");
   }
 
-  console.log(
-    `📧 Sending OTP email to ${email}`
-  );
+  console.log(`📧 Sending OTP email to ${email}`);
 
   const mailOptions = {
     from: `"Wild App" <${process.env.SMTP_USER}>`,
@@ -89,9 +88,7 @@ Wild App
 
     html: `
 <!DOCTYPE html>
-
 <html>
-
 <head>
   <meta charset="UTF-8" />
 </head>
@@ -133,44 +130,32 @@ Wild App
   </p>
 
 </body>
-
 </html>
 `,
   };
 
   try {
-    const result =
-      await transporter.sendMail(
-        mailOptions
-      );
+    const result = await transporter.sendMail(mailOptions);
 
-    console.log(
-      "✅ OTP EMAIL SENT"
-    );
-
-    console.log(
-      "Message ID:",
-      result.messageId
-    );
+    console.log("✅ OTP EMAIL SENT");
+    console.log("Message ID:", result.messageId);
 
     return result;
 
   } catch (error) {
-
-    console.error(
-      "❌ OTP EMAIL FAILED"
-    );
-
-    console.error(
-      "Code:",
-      error.code
-    );
-
-    console.error(
-      "Message:",
-      error.message
-    );
+    console.error("❌ OTP EMAIL FAILED");
+    console.error("Code:", error.code);
+    console.error("Message:", error.message);
 
     throw error;
   }
 }
+
+// =====================================================
+// EXPORTS
+// =====================================================
+
+module.exports = {
+  verifyEmailConnection,
+  sendOTPEmail,
+};
