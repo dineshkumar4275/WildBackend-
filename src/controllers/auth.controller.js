@@ -164,60 +164,97 @@ const { sendOtpEmail } = require("../utils/email");
 // POST /api/auth/send-otp
 // =====================================================
 
-exports.sendOtp = async (req, res) => {
+export const sendOTP = async (req, res) => {
   try {
-    const { email, name } = req.body;
+    const {
+      name,
+      phone,
+      email,
+    } = req.body;
 
-    if (!email || !email.includes("@")) {
+    if (!email) {
       return res.status(400).json({
         success: false,
-        message: "Valid email required",
+        message: "Email is required",
       });
     }
 
-    const cleanEmail = email.toLowerCase().trim();
+    const cleanEmail =
+      String(email)
+        .trim()
+        .toLowerCase();
 
-    console.log("=================================");
-    console.log("📧 SEND OTP");
-    console.log("Email:", cleanEmail);
-    console.log("=================================");
+    const otp =
+      Math.floor(
+        100000 +
+        Math.random() * 900000
+      ).toString();
 
-    const otp = generateOtp(cleanEmail);
+    const expiresAt =
+      Date.now() +
+      10 * 60 * 1000;
 
-    console.log("🔐 OTP:", otp);
-
-    // IMPORTANT:
-    // Wait for email to actually send
-    await sendOtpEmail(
+    otpStore.set(
       cleanEmail,
-      otp,
-      name
+      {
+        otp,
+        expiresAt,
+        attempts: 0,
+        name: name || "",
+        phone: phone || "",
+      }
     );
 
-    console.log("✅ EMAIL SENT SUCCESSFULLY");
+    console.log(
+      "================================="
+    );
+
+    console.log(
+      "📧 OTP GENERATED"
+    );
+
+    console.log(
+      "Email:",
+      cleanEmail
+    );
+
+    console.log(
+      "OTP:",
+      otp
+    );
+
+    console.log(
+      "================================="
+    );
+
+    // SEND EMAIL
+    await sendOTPEmail(
+      cleanEmail,
+      otp,
+      name || cleanEmail.split("@")[0]
+    );
+
+    console.log(
+      "✅ EMAIL SENT SUCCESSFULLY"
+    );
 
     return res.json({
       success: true,
-      message: `OTP sent to ${cleanEmail}`,
-
-      // Development only
-      ...(process.env.NODE_ENV === "development"
-        ? {
-            testOTP: otp,
-          }
-        : {}),
+      message:
+        "OTP sent to your email",
     });
 
   } catch (error) {
-    console.error("=================================");
-    console.error("❌ OTP EMAIL FAILED");
-    console.error(error);
-    console.error("=================================");
+
+    console.error(
+      "❌ SEND OTP ERROR:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
       message:
-        "Unable to send OTP email. Please check email configuration.",
+        "Unable to send OTP email",
     });
   }
 };
