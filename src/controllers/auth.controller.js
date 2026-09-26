@@ -177,52 +177,47 @@ exports.sendOtp = async (req, res) => {
 
     const cleanEmail = email.toLowerCase().trim();
 
-    console.log("==============================");
+    console.log("=================================");
     console.log("📧 SEND OTP");
     console.log("Email:", cleanEmail);
-    console.log("==============================");
+    console.log("=================================");
 
-    // Generate OTP
     const otp = generateOtp(cleanEmail);
 
-    console.log("🔐 Generated OTP:", otp);
+    console.log("🔐 OTP:", otp);
 
     // IMPORTANT:
-    // Wait until email is actually sent
-    try {
-      await sendOtpEmail(cleanEmail, otp, name);
+    // Wait for email to actually send
+    await sendOtpEmail(
+      cleanEmail,
+      otp,
+      name
+    );
 
-      console.log("✅ OTP EMAIL SENT");
-      console.log("To:", cleanEmail);
+    console.log("✅ EMAIL SENT SUCCESSFULLY");
 
-      return res.json({
-        success: true,
-        message: `OTP sent to ${cleanEmail}`,
+    return res.json({
+      success: true,
+      message: `OTP sent to ${cleanEmail}`,
 
-        // Only for development/testing
-        ...(process.env.NODE_ENV === "development"
-          ? { testOTP: otp }
-          : {}),
-      });
-    } catch (emailError) {
-      console.error("==============================");
-      console.error("❌ EMAIL SEND FAILED");
-      console.error("Error:", emailError);
-      console.error("Message:", emailError.message);
-      console.error("==============================");
+      // Development only
+      ...(process.env.NODE_ENV === "development"
+        ? {
+            testOTP: otp,
+          }
+        : {}),
+    });
 
-      return res.status(500).json({
-        success: false,
-        message:
-          "Unable to send OTP email. Please try again.",
-      });
-    }
   } catch (error) {
-    console.error("❌ SEND OTP ERROR:", error);
+    console.error("=================================");
+    console.error("❌ OTP EMAIL FAILED");
+    console.error(error);
+    console.error("=================================");
 
     return res.status(500).json({
       success: false,
-      message: "Something went wrong while sending OTP",
+      message:
+        "Unable to send OTP email. Please check email configuration.",
     });
   }
 };
