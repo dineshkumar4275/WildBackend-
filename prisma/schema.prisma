@@ -1,3 +1,221 @@
+-- CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- CREATE TABLE IF NOT EXISTS users (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   name VARCHAR(120) NOT NULL,
+--   phone VARCHAR(30) NOT NULL UNIQUE,
+--   email VARCHAR(255) NOT NULL UNIQUE,
+--   role VARCHAR(20) NOT NULL DEFAULT 'USER' CHECK (role IN ('USER','ADMIN')),
+--   status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','BLOCKED','SUSPENDED')),
+--   email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+--   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+--   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+-- );
+
+-- CREATE TABLE IF NOT EXISTS email_otps (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   email VARCHAR(255) NOT NULL,
+--   otp_hash TEXT NOT NULL,
+--   expires_at TIMESTAMP NOT NULL,
+--   attempts INTEGER NOT NULL DEFAULT 0,
+--   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+-- );
+-- CREATE INDEX IF NOT EXISTS idx_email_otps_email ON email_otps(email);
+
+-- CREATE TABLE IF NOT EXISTS animal_categories (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   name VARCHAR(80) NOT NULL UNIQUE,
+--   is_active BOOLEAN NOT NULL DEFAULT TRUE,
+--   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+-- );
+
+-- CREATE TABLE IF NOT EXISTS seller_profiles (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+--   display_name VARCHAR(150) NOT NULL,
+--   bio TEXT,
+--   city VARCHAR(100) NOT NULL,
+--   district VARCHAR(100) NOT NULL,
+--   verification_status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
+--     CHECK (verification_status IN ('PENDING','APPROVED','REJECTED')),
+--   verification_note TEXT,
+--   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+--   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+-- );
+
+-- CREATE TABLE IF NOT EXISTS listings (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   seller_id UUID NOT NULL REFERENCES seller_profiles(id) ON DELETE RESTRICT,
+--   category_id UUID NOT NULL REFERENCES animal_categories(id),
+--   title VARCHAR(200) NOT NULL,
+--   description TEXT,
+--   price NUMERIC(12,2) NOT NULL CHECK (price >= 0),
+--   negotiable BOOLEAN NOT NULL DEFAULT FALSE,
+--   status VARCHAR(30) NOT NULL DEFAULT 'PENDING_REVIEW'
+--     CHECK (status IN ('DRAFT','PENDING_REVIEW','APPROVED','PUBLISHED','SOLD','CLOSED','REJECTED')),
+--   rejection_reason TEXT,
+--   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+--   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+-- );
+-- CREATE INDEX IF NOT EXISTS idx_listings_status ON listings(status);
+-- CREATE INDEX IF NOT EXISTS idx_listings_category ON listings(category_id);
+
+-- CREATE TABLE IF NOT EXISTS animal_details (
+--   listing_id UUID PRIMARY KEY REFERENCES listings(id) ON DELETE CASCADE,
+--   breed VARCHAR(120),
+--   gender VARCHAR(30),
+--   age VARCHAR(50),
+--   weight NUMERIC(10,2),
+--   colour VARCHAR(80),
+--   health_info TEXT,
+--   vaccination_info TEXT
+-- );
+
+-- CREATE TABLE IF NOT EXISTS locations (
+--   listing_id UUID PRIMARY KEY REFERENCES listings(id) ON DELETE CASCADE,
+--   state VARCHAR(100),
+--   district VARCHAR(100),
+--   city VARCHAR(100) NOT NULL,
+--   area VARCHAR(150) NOT NULL,
+--   latitude DOUBLE PRECISION,
+--   longitude DOUBLE PRECISION
+-- );
+
+-- CREATE TABLE IF NOT EXISTS listing_images (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   listing_id UUID NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+--   media_url TEXT NOT NULL,
+--   cloudinary_public_id TEXT,
+--   media_type VARCHAR(20) NOT NULL DEFAULT 'image',
+--   is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+--   sort_order INTEGER NOT NULL DEFAULT 0,
+--   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+-- );
+
+-- CREATE TABLE IF NOT EXISTS favorites (
+--   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+--   listing_id UUID NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+--   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+--   PRIMARY KEY(user_id,listing_id)
+-- );
+
+-- CREATE TABLE IF NOT EXISTS conversations (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   listing_id UUID NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+--   buyer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+--   seller_id UUID NOT NULL REFERENCES seller_profiles(id) ON DELETE CASCADE,
+--   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+--   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+--   UNIQUE(listing_id,buyer_id,seller_id)
+-- );
+
+-- CREATE TABLE IF NOT EXISTS messages (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+--   sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+--   message TEXT NOT NULL,
+--   message_type VARCHAR(20) NOT NULL DEFAULT 'TEXT',
+--   is_read BOOLEAN NOT NULL DEFAULT FALSE,
+--   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+-- );
+
+-- CREATE TABLE IF NOT EXISTS platform_settings (
+--   id INTEGER PRIMARY KEY DEFAULT 1,
+--   commission_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+--   commission_percentage NUMERIC(5,2) NOT NULL DEFAULT 5.00 CHECK (commission_percentage >= 0 AND commission_percentage <= 100),
+--   currency VARCHAR(10) NOT NULL DEFAULT 'INR',
+--   updated_by UUID REFERENCES users(id),
+--   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+-- );
+
+-- CREATE TABLE IF NOT EXISTS transactions (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   listing_id UUID NOT NULL REFERENCES listings(id),
+--   buyer_id UUID NOT NULL REFERENCES users(id),
+--   seller_id UUID NOT NULL REFERENCES seller_profiles(id),
+--   animal_price NUMERIC(12,2) NOT NULL,
+--   platform_fee NUMERIC(12,2) NOT NULL,
+--   seller_amount NUMERIC(12,2) NOT NULL,
+--   status VARCHAR(30) NOT NULL DEFAULT 'PENDING'
+--     CHECK (status IN ('PENDING','PAID','COMPLETED','CANCELLED','REFUNDED')),
+--   payout_status VARCHAR(30) NOT NULL DEFAULT 'PENDING'
+--     CHECK (payout_status IN ('PENDING','PROCESSING','PAID','FAILED')),
+--   paid_at TIMESTAMP,
+--   completed_at TIMESTAMP,
+--   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+-- );
+
+-- CREATE TABLE IF NOT EXISTS payments (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   transaction_id UUID NOT NULL UNIQUE REFERENCES transactions(id) ON DELETE CASCADE,
+--   gateway VARCHAR(40) NOT NULL,
+--   order_id VARCHAR(150),
+--   payment_id VARCHAR(150),
+--   amount NUMERIC(12,2) NOT NULL,
+--   status VARCHAR(30) NOT NULL DEFAULT 'CREATED',
+--   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+-- );
+
+-- CREATE TABLE IF NOT EXISTS reports (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   reporter_id UUID NOT NULL REFERENCES users(id),
+--   listing_id UUID REFERENCES listings(id) ON DELETE SET NULL,
+--   reported_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+--   type VARCHAR(30) NOT NULL,
+--   description TEXT NOT NULL,
+--   status VARCHAR(20) NOT NULL DEFAULT 'OPEN',
+--   resolution_note TEXT,
+--   resolved_by UUID REFERENCES users(id),
+--   resolved_at TIMESTAMP,
+--   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+-- );
+
+-- CREATE TABLE IF NOT EXISTS reviews (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   transaction_id UUID NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
+--   reviewer_id UUID NOT NULL REFERENCES users(id),
+--   reviewee_id UUID NOT NULL REFERENCES users(id),
+--   rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+--   comment TEXT,
+--   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+--   UNIQUE(transaction_id,reviewer_id)
+-- );
+
+-- CREATE TABLE IF NOT EXISTS notifications (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+--   type VARCHAR(50) NOT NULL,
+--   title VARCHAR(200) NOT NULL,
+--   message TEXT NOT NULL,
+--   reference_id UUID,
+--   is_read BOOLEAN NOT NULL DEFAULT FALSE,
+--   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+-- );
+
+-- CREATE TABLE IF NOT EXISTS user_devices (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+--   expo_push_token TEXT NOT NULL,
+--   platform VARCHAR(20),
+--   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+--   UNIQUE(user_id,expo_push_token)
+-- );
+
+-- CREATE TABLE IF NOT EXISTS audit_logs (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   admin_id UUID NOT NULL REFERENCES users(id),
+--   action VARCHAR(100) NOT NULL,
+--   entity_type VARCHAR(50) NOT NULL,
+--   entity_id VARCHAR(100),
+--   metadata JSONB,
+--   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+-- );
+
+-- INSERT INTO platform_settings(id) VALUES(1) ON CONFLICT (id) DO NOTHING;
+
+-- INSERT INTO animal_categories(name) VALUES
+-- ('Cow'),('Buffalo'),('Calf'),('Goat'),('Sheep'),('Poultry'),('Dog'),('Cat')
+-- ON CONFLICT (name) DO NOTHING;
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,6 +226,7 @@ datasource db {
 }
 
 // ─── Enums ──────────────────────────────────
+
 enum Role {
   BUYER
   SELLER
@@ -15,8 +234,8 @@ enum Role {
 }
 
 enum ListingStatus {
-  PENDING    // waiting for admin approval
-  ACTIVE     // live in marketplace
+  PENDING
+  ACTIVE
   SOLD
   REJECTED
   HIDDEN
@@ -31,14 +250,15 @@ enum Category {
   TURTLE
 }
 
-// ─── Models ─────────────────────────────────
+// ─── User ───────────────────────────────────
+
 model User {
   id            String    @id @default(cuid())
-  phone         String    @unique
+  email         String    @unique
+  phone         String?   @unique
   name          String?
-  email         String?   @unique
   role          Role      @default(BUYER)
-  walletBalance Int       @default(0)  // paise
+  walletBalance Int       @default(0)
   avatarUrl     String?
   isBanned      Boolean   @default(false)
   createdAt     DateTime  @default(now())
@@ -47,33 +267,54 @@ model User {
   listings      Listing[] @relation("SellerListings")
   payments      Payment[]
   unlocks       Unlock[]
+  emailOtps     EmailOtp[]
 }
 
-model Listing {
-  id             String        @id @default(cuid())
-  sellerId       String
-  title          String
-  category       Category
-  breed          String
-  price          Int           // paise
-  age            String?
-  description    String
-  location       String
-  images         String[]
-  status         ListingStatus @default(PENDING)
-  rejectionNote  String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+// ─── Email OTP ──────────────────────────────
 
-  seller         User          @relation("SellerListings", fields: [sellerId], references: [id], onDelete: Cascade)
-  payments       Payment[]
-  unlocks        Unlock[]
+model EmailOtp {
+  id        String   @id @default(cuid())
+  email     String
+  otpHash   String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [email], references: [email], onDelete: Cascade)
+
+  @@index([email])
+  @@index([expiresAt])
+}
+
+// ─── Listing ────────────────────────────────
+
+model Listing {
+  id            String        @id @default(cuid())
+  sellerId      String
+  title         String
+  category      Category
+  breed         String
+  price         Int
+  age           String?
+  description   String
+  location      String
+  images        String[]
+  status        ListingStatus @default(PENDING)
+  rejectionNote String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  seller   User      @relation("SellerListings", fields: [sellerId], references: [id], onDelete: Cascade)
+  payments Payment[]
+  unlocks  Unlock[]
 
   @@index([category])
   @@index([location])
   @@index([sellerId])
   @@index([status])
 }
+
+// ─── Payment ────────────────────────────────
 
 model Payment {
   id                String   @id @default(cuid())
@@ -87,39 +328,25 @@ model Payment {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  buyer             User     @relation(fields: [buyerId], references: [id], onDelete: Cascade)
-  listing           Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  buyer   User    @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
   @@index([buyerId])
   @@index([listingId])
 }
 
-model Unlock {
-  id         String   @id @default(cuid())
-  buyerId    String
-  listingId  String
-  paymentId  String?  @unique
-  createdAt  DateTime @default(now())
+// ─── Unlock ─────────────────────────────────
 
-  buyer      User     @relation(fields: [buyerId], references: [id], onDelete: Cascade)
-  listing    Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+model Unlock {
+  id        String   @id @default(cuid())
+  buyerId   String
+  listingId String
+  paymentId String?  @unique
+  createdAt DateTime @default(now())
+
+  buyer   User    @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
   @@unique([buyerId, listingId])
   @@index([buyerId])
-}
-model User {
-  id            String    @id @default(cuid())
-  email         String    @unique              // ← required, unique
-  phone         String?   @unique              // ← optional now (was required)
-  name          String?
-  role          Role      @default(BUYER)
-  walletBalance Int       @default(0)
-  avatarUrl     String?
-  isBanned      Boolean   @default(false)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  listings      Listing[] @relation("SellerListings")
-  payments      Payment[]
-  unlocks       Unlock[]
 }
