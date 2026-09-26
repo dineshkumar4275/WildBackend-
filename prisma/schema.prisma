@@ -1,0 +1,125 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ──────────────────────────────────
+enum Role {
+  BUYER
+  SELLER
+  ADMIN
+}
+
+enum ListingStatus {
+  PENDING    // waiting for admin approval
+  ACTIVE     // live in marketplace
+  SOLD
+  REJECTED
+  HIDDEN
+}
+
+enum Category {
+  DOG
+  CAT
+  BIRD
+  FISH
+  SMALL_PET
+  TURTLE
+}
+
+// ─── Models ─────────────────────────────────
+model User {
+  id            String    @id @default(cuid())
+  phone         String    @unique
+  name          String?
+  email         String?   @unique
+  role          Role      @default(BUYER)
+  walletBalance Int       @default(0)  // paise
+  avatarUrl     String?
+  isBanned      Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  listings      Listing[] @relation("SellerListings")
+  payments      Payment[]
+  unlocks       Unlock[]
+}
+
+model Listing {
+  id             String        @id @default(cuid())
+  sellerId       String
+  title          String
+  category       Category
+  breed          String
+  price          Int           // paise
+  age            String?
+  description    String
+  location       String
+  images         String[]
+  status         ListingStatus @default(PENDING)
+  rejectionNote  String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  seller         User          @relation("SellerListings", fields: [sellerId], references: [id], onDelete: Cascade)
+  payments       Payment[]
+  unlocks        Unlock[]
+
+  @@index([category])
+  @@index([location])
+  @@index([sellerId])
+  @@index([status])
+}
+
+model Payment {
+  id                String   @id @default(cuid())
+  buyerId           String
+  listingId         String
+  amountPaise       Int
+  razorpayOrderId   String   @unique
+  razorpayPaymentId String?
+  razorpaySignature String?
+  status            String   @default("created")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  buyer             User     @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  listing           Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([buyerId])
+  @@index([listingId])
+}
+
+model Unlock {
+  id         String   @id @default(cuid())
+  buyerId    String
+  listingId  String
+  paymentId  String?  @unique
+  createdAt  DateTime @default(now())
+
+  buyer      User     @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  listing    Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([buyerId, listingId])
+  @@index([buyerId])
+}
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique              // ← required, unique
+  phone         String?   @unique              // ← optional now (was required)
+  name          String?
+  role          Role      @default(BUYER)
+  walletBalance Int       @default(0)
+  avatarUrl     String?
+  isBanned      Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  listings      Listing[] @relation("SellerListings")
+  payments      Payment[]
+  unlocks       Unlock[]
+}
