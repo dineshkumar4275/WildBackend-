@@ -203,7 +203,7 @@ export const verifyOTP = async (req, res) => {
     // FIND USER
     // =================================================
 
-    let user = await prisma.user.findUnique({
+    let user = await prisma.users.findUnique({
       where: {
         email: cleanEmail,
       },
@@ -214,7 +214,7 @@ export const verifyOTP = async (req, res) => {
     // =================================================
 
     if (!user) {
-      user = await prisma.user.create({
+      user = await prisma.users.create({
         data: {
           email: cleanEmail,
 

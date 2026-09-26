@@ -7,7 +7,7 @@ router.use(authRequired, requireRole('ADMIN'));
 
 router.get('/stats', async (req, res) => {
   const [users, listings, pending, payments] = await Promise.all([
-    prisma.user.count(),
+    prisma.users.count(),
     prisma.listing.count(),
     prisma.listing.count({ where: { status: 'PENDING' } }),
     prisma.payment.aggregate({ _sum: { amountPaise: true } }),
@@ -30,7 +30,7 @@ router.get('/listings/pending', async (req, res) => {
 });
 
 router.get('/users', async (req, res) => {
-  const users = await prisma.user.findMany({
+  const users = await prisma.users.findMany({
     orderBy: { createdAt: 'desc' },
   });
   res.json({ users });
@@ -38,7 +38,7 @@ router.get('/users', async (req, res) => {
 
 router.patch('/users/:id/ban', async (req, res) => {
   const { isBanned } = req.body;
-  const user = await prisma.user.update({
+  const user = await prisma.users.update({
     where: { id: req.params.id },
     data: { isBanned: !!isBanned },
   });
