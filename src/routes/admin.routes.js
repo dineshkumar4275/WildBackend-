@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { authRequired } = require('../middleware/auth');
+const { authRequired } = require('../middleware/authMiddleware');
 const { requireRole } = require('../middleware/role');
 const prisma = require('../prisma');
 

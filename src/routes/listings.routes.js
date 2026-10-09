@@ -1,35 +1,114 @@
-const router = require('express').Router();
-const { authRequired, authOptional } = require('../middleware/auth');
-const { requireRole } = require('../middleware/role');
-const { validateListing } = require('../middleware/validateListing');
-const ctrl = require('../controllers/listings.controller');
+const router = require("express").Router();
 
-router.get('/', authOptional, ctrl.getAll);
-router.get('/mine', authRequired, requireRole('SELLER', 'ADMIN'), ctrl.mine);
-router.get('/:id', authOptional, ctrl.getOne);
+const {
+  authRequired,
+  authOptional,
+} = require("../middleware/authMiddleware");
+
+const {
+  requireRole,
+} = require("../middleware/role");
+
+const {
+  validateListing,
+} = require("../middleware/validateListing");
+
+const ctrl = require("../controllers/listings.controller");
+
+// ==========================================
+// NEARBY
+// GET /api/listings/nearby
+// ==========================================
+
+router.get(
+  "/nearby",
+  authOptional,
+  ctrl.nearby
+);
+
+// ==========================================
+// ALL LISTINGS + SEARCH
+// GET /api/listings
+//
+// /api/listings
+// /api/listings?q=dog
+// /api/listings?q=cow
+// /api/listings?q=murrah
+// ==========================================
+
+router.get(
+  "/",
+  authOptional,
+  ctrl.getAll
+);
+
+// ==========================================
+// MY LISTINGS
+// GET /api/listings/mine
+// ==========================================
+
+router.get(
+  "/mine",
+  authRequired,
+  ctrl.mine
+);
+
+// ==========================================
+// APPROVE
+// PATCH /api/listings/:id/approve
+// ==========================================
+
+router.patch(
+  "/:id/approve",
+  authRequired,
+  requireRole("ADMIN"),
+  ctrl.approve
+);
+
+// ==========================================
+// REJECT
+// PATCH /api/listings/:id/reject
+// ==========================================
+
+router.patch(
+  "/:id/reject",
+  authRequired,
+  requireRole("ADMIN"),
+  ctrl.reject
+);
+
+// ==========================================
+// SINGLE LISTING
+// GET /api/listings/:id
+// ==========================================
+
+router.get(
+  "/:id",
+  authOptional,
+  ctrl.getOne
+);
+
+// ==========================================
+// CREATE
+// POST /api/listings
+// ==========================================
 
 router.post(
-  '/',
+  "/",
   authRequired,
-  requireRole('SELLER', 'ADMIN'),
   validateListing,
   ctrl.create
 );
 
-router.delete('/:id', authRequired, ctrl.remove);
+// ==========================================
+// DELETE
+// DELETE /api/listings/:id
+// ==========================================
 
-// Admin only
-router.patch(
-  '/:id/approve',
+router.delete(
+  "/:id",
   authRequired,
-  requireRole('ADMIN'),
-  ctrl.approve
-);
-router.patch(
-  '/:id/reject',
-  authRequired,
-  requireRole('ADMIN'),
-  ctrl.reject
+  ctrl.remove
 );
 
 module.exports = router;

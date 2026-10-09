@@ -1,0 +1,327 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model users {
+  id                     String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                   String           @db.VarChar(120)
+  phone                  String           @db.VarChar(30)
+  email                  String           @db.VarChar(255)
+  role                   String           @default("USER") @db.VarChar(20)
+  status                 String           @default("ACTIVE") @db.VarChar(20)
+  email_verified         Boolean          @default(false)
+  created_at             DateTime         @default(now()) @db.Timestamp(6)
+  updated_at             DateTime         @default(now()) @updatedAt @db.Timestamp(6)
+  latitude               Float?
+  longitude              Float?
+  street                 String?          @db.VarChar(255)
+  street_number          String?          @db.VarChar(50)
+  area                   String?          @db.VarChar(255)
+  city                   String?          @db.VarChar(255)
+  district               String?          @db.VarChar(255)
+  state                  String?          @db.VarChar(255)
+  postal_code            String?          @db.VarChar(20)
+  country                String?          @db.VarChar(100)
+  conversations_as_buyer conversations[]  @relation("conversations_buyer")
+  favorites              favorites[]
+  messages               messages[]
+  notifications          notifications[]
+  reports_filed          reports[]        @relation("reports_reporter")
+  reports_resolved       reports[]        @relation("reports_resolved_by")
+  reviews_received       reviews[]        @relation("reviews_reviewee")
+  reviews_written        reviews[]        @relation("reviews_reviewer")
+  seller_profile         seller_profiles?
+  transactions_as_buyer  transactions[]   @relation("transactions_buyer")
+
+  @@unique([email, role])
+  @@unique([phone, role])
+  @@map("users")
+}
+
+model seller_profiles {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id             String   @unique @db.Uuid
+  display_name        String   @db.VarChar(150)
+  bio                 String?
+  city                String   @db.VarChar(100)
+  district            String   @db.VarChar(100)
+  verification_status String   @default("PENDING") @db.VarChar(20)
+  verification_note   String?
+  created_at          DateTime @default(now()) @db.Timestamp(6)
+  updated_at          DateTime @default(now()) @updatedAt @db.Timestamp(6)
+  user                users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("seller_profiles")
+}
+
+model animal_categories {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String   @unique @db.VarChar(80)
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now()) @db.Timestamp(6)
+
+  @@map("animal_categories")
+}
+
+model listings {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  seller_id        String           @db.Uuid
+  category_id      String           @db.Uuid
+  title            String           @db.VarChar(200)
+  description      String?
+  price            Decimal          @db.Decimal(12, 2)
+  negotiable       Boolean          @default(false)
+  status           String           @default("PENDING_REVIEW") @db.VarChar(30)
+  rejection_reason String?
+  created_at       DateTime         @default(now()) @db.Timestamp(6)
+  updated_at       DateTime         @default(now()) @updatedAt @db.Timestamp(6)
+  favorites        favorites[]
+  images           listing_images[]
+  reports          reports[]
+  transactions     transactions[]
+
+  @@index([category_id], map: "idx_listings_category")
+  @@index([status], map: "idx_listings_status")
+  @@map("listings")
+}
+
+model listing_images {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  listing_id           String   @db.Uuid
+  media_url            String
+  cloudinary_public_id String?
+  media_type           String   @default("image") @db.VarChar(20)
+  is_primary           Boolean  @default(false)
+  sort_order           Int      @default(0)
+  created_at           DateTime @default(now()) @db.Timestamp(6)
+  listing              listings @relation(fields: [listing_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("listing_images")
+}
+
+model favorites {
+  user_id    String   @db.Uuid
+  listing_id String   @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  listing    listings @relation(fields: [listing_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user       users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([user_id, listing_id])
+  @@map("favorites")
+}
+
+model conversations {
+  id         String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  listing_id String     @db.Uuid
+  buyer_id   String     @db.Uuid
+  seller_id  String     @db.Uuid
+  created_at DateTime   @default(now()) @db.Timestamp(6)
+  updated_at DateTime   @default(now()) @updatedAt @db.Timestamp(6)
+  buyer      users      @relation("conversations_buyer", fields: [buyer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  messages   messages[]
+
+  @@unique([listing_id, buyer_id, seller_id])
+  @@map("conversations")
+}
+
+model messages {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversation_id String        @db.Uuid
+  sender_id       String        @db.Uuid
+  message         String
+  message_type    String        @default("TEXT") @db.VarChar(20)
+  is_read         Boolean       @default(false)
+  created_at      DateTime      @default(now()) @db.Timestamp(6)
+  conversation    conversations @relation(fields: [conversation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sender          users         @relation(fields: [sender_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("messages")
+}
+
+model transactions {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  listing_id    String    @db.Uuid
+  buyer_id      String    @db.Uuid
+  seller_id     String    @db.Uuid
+  animal_price  Decimal   @db.Decimal(12, 2)
+  platform_fee  Decimal   @db.Decimal(12, 2)
+  seller_amount Decimal   @db.Decimal(12, 2)
+  status        String    @default("PENDING") @db.VarChar(30)
+  payout_status String    @default("PENDING") @db.VarChar(30)
+  paid_at       DateTime? @db.Timestamp(6)
+  completed_at  DateTime? @db.Timestamp(6)
+  created_at    DateTime  @default(now()) @db.Timestamp(6)
+  reviews       reviews[]
+  buyer         users     @relation("transactions_buyer", fields: [buyer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  listing       listings  @relation(fields: [listing_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("transactions")
+}
+
+model reviews {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  transaction_id String       @db.Uuid
+  reviewer_id    String       @db.Uuid
+  reviewee_id    String       @db.Uuid
+  rating         Int
+  comment        String?
+  created_at     DateTime     @default(now()) @db.Timestamp(6)
+  reviewee       users        @relation("reviews_reviewee", fields: [reviewee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reviewer       users        @relation("reviews_reviewer", fields: [reviewer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  transaction    transactions @relation(fields: [transaction_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([transaction_id, reviewer_id])
+  @@map("reviews")
+}
+
+model reports {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reporter_id      String    @db.Uuid
+  listing_id       String?   @db.Uuid
+  reported_user_id String?   @db.Uuid
+  type             String    @db.VarChar(30)
+  description      String
+  status           String    @default("OPEN") @db.VarChar(20)
+  resolution_note  String?
+  resolved_by      String?   @db.Uuid
+  resolved_at      DateTime? @db.Timestamp(6)
+  created_at       DateTime  @default(now()) @db.Timestamp(6)
+  listing          listings? @relation(fields: [listing_id], references: [id], onUpdate: NoAction)
+  reporter         users     @relation("reports_reporter", fields: [reporter_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  resolved_user    users?    @relation("reports_resolved_by", fields: [resolved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("reports")
+}
+
+model notifications {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String   @db.Uuid
+  type         String   @db.VarChar(50)
+  title        String   @db.VarChar(200)
+  message      String
+  reference_id String?  @db.Uuid
+  is_read      Boolean  @default(false)
+  created_at   DateTime @default(now()) @db.Timestamp(6)
+  user         users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("notifications")
+}
+
+model audit_logs {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  admin_id    String   @db.Uuid
+  action      String   @db.VarChar(100)
+  entity_type String   @db.VarChar(50)
+  entity_id   String?  @db.VarChar(100)
+  metadata    Json?
+  created_at  DateTime @default(now()) @db.Timestamp(6)
+
+  @@map("audit_logs")
+}
+
+model animal_details {
+  listing_id       String   @id @db.Uuid
+  breed            String?  @db.VarChar(120)
+  gender           String?  @db.VarChar(30)
+  age              String?  @db.VarChar(50)
+  weight           Decimal? @db.Decimal(10, 2)
+  colour           String?  @db.VarChar(80)
+  health_info      String?
+  vaccination_info String?
+}
+
+model email_otps {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email      String   @db.VarChar(255)
+  otp_hash   String
+  expires_at DateTime @db.Timestamp(6)
+  attempts   Int      @default(0)
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  role       String   @default("USER") @db.VarChar(20)
+
+  @@index([email], map: "idx_email_otps_email")
+  @@index([email, role], map: "idx_email_otps_email_role")
+}
+
+model locations {
+  listing_id    String  @id @db.Uuid
+  state         String? @db.VarChar(100)
+  district      String? @db.VarChar(100)
+  city          String  @db.VarChar(100)
+  area          String  @db.VarChar(150)
+  latitude      Float?
+  longitude     Float?
+  country       String? @db.VarChar(100)
+  postal_code   String? @db.VarChar(20)
+  street        String? @db.VarChar(255)
+  street_number String? @db.VarChar(50)
+}
+
+model payments {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  transaction_id String   @unique @db.Uuid
+  gateway        String   @db.VarChar(40)
+  order_id       String?  @db.VarChar(150)
+  payment_id     String?  @db.VarChar(150)
+  amount         Decimal  @db.Decimal(12, 2)
+  status         String   @default("CREATED") @db.VarChar(30)
+  created_at     DateTime @default(now()) @db.Timestamp(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model platform_settings {
+  id                    Int      @id @default(1)
+  commission_enabled    Boolean  @default(true)
+  commission_percentage Decimal  @default(5.00) @db.Decimal(5, 2)
+  currency              String   @default("INR") @db.VarChar(10)
+  updated_by            String?  @db.Uuid
+  updated_at            DateTime @default(now()) @db.Timestamp(6)
+}
+
+model user_devices {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String   @db.Uuid
+  expo_push_token String
+  platform        String?  @db.VarChar(20)
+  created_at      DateTime @default(now()) @db.Timestamp(6)
+
+  @@unique([user_id, expo_push_token])
+}
+
+enum user_role {
+  BUYER
+  SELLER
+  ADMIN
+}
+
+enum listing_status {
+  PENDING_REVIEW
+  ACTIVE
+  REJECTED
+  SOLD
+  ARCHIVED
+}
+
+enum seller_verification_status {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum transaction_status {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum report_status {
+  OPEN
+  RESOLVED
+  DISMISSED
+}

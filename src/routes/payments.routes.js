@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { authRequired } = require('../middleware/auth');
+const { authRequired } = require('../middleware/authMiddleware');
 const ctrl = require('../controllers/payments.controller');
 
 router.post('/create-order', authRequired, ctrl.createOrder);

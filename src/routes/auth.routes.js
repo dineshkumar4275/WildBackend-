@@ -1,15 +1,45 @@
 const router = require("express").Router();
 
-const { authRequired } = require("../middleware/auth");
-const ctrl = require("../controllers/auth.controller");
+const { authRequired } =
+  require("../middleware/authMiddleware");
 
-// Send OTP
-router.post("/send-otp", ctrl.sendOTP);
+const ctrl =
+  require("../controllers/auth.controller");
 
-// Verify OTP
-router.post("/verify-otp", ctrl.verifyOTP);
+// =====================================================
+// REGISTER
+// =====================================================
 
-// Get logged-in user
-router.get("/me", authRequired, ctrl.me);
+// Send registration OTP
+router.post(
+  "/send-otp",
+  ctrl.sendOTP
+);
+
+// Verify registration OTP
+router.post(
+  "/verify-otp",
+  ctrl.verifyOTP
+);
+
+// =====================================================
+// LOGIN
+// =====================================================
+
+// Login WITHOUT OTP
+router.post(
+  "/login",
+  ctrl.login
+);
+
+// =====================================================
+// CURRENT USER
+// =====================================================
+
+router.get(
+  "/me",
+  authRequired,
+  ctrl.me
+);
 
 module.exports = router;
