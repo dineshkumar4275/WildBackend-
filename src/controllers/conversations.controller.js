@@ -160,10 +160,10 @@ exports.createOrGet = async (req, res) => {
 // GET /api/conversations
 // =====================================================
 
+
 exports.getMyConversations = async (req, res) => {
   try {
     const userId = Number(req.user.id);
-    const role = String(req.user.role || "").toUpperCase();
 
     if (!userId) {
       return res.status(401).json({
@@ -172,19 +172,16 @@ exports.getMyConversations = async (req, res) => {
       });
     }
 
-    // ---------------------------------------------
-    // FETCH CONVERSATIONS
-    // ---------------------------------------------
-
     const conversations = await prisma.conversations.findMany({
       where: {
-        OR: [{ buyer_id: userId }, { seller_id: userId }],
+        OR: [
+          { buyer_id: userId },
+          { seller_id: userId },
+        ],
       },
-
       orderBy: {
         updated_at: "desc",
       },
-
       include: {
         buyer: {
           select: {
@@ -195,7 +192,6 @@ exports.getMyConversations = async (req, res) => {
             mobile: true,
           },
         },
-
         seller: {
           select: {
             id: true,
@@ -205,7 +201,6 @@ exports.getMyConversations = async (req, res) => {
             mobile: true,
           },
         },
-
         listing: {
           select: {
             id: true,
@@ -213,18 +208,15 @@ exports.getMyConversations = async (req, res) => {
             price: true,
             city: true,
             area: true,
-
             images: {
               orderBy: { sort_order: "asc" },
               take: 1,
             },
           },
         },
-
         messages: {
           orderBy: { created_at: "desc" },
           take: 1,
-
           select: {
             id: true,
             message: true,
@@ -236,25 +228,18 @@ exports.getMyConversations = async (req, res) => {
       },
     });
 
-    // ---------------------------------------------
-    // ENRICH EACH CONVERSATION
-    // 1. unread_count (per conversation)
-    // 2. other_user (buyer or seller)
-    // 3. other_party (name string)
-    // ---------------------------------------------
-
     const enriched = await Promise.all(
       conversations.map(async (c) => {
-        // Unread count: messages NOT sent by me + is_read = false
+        const unreadWhere = {
+          conversation_id: c.id,
+          sender_id: { not: userId },
+          is_read: false,
+        };
+
         const unread_count = await prisma.messages.count({
-          where: {
-            conversation_id: c.id,
-            sender_id: { not: userId },
-            is_read: false,
-          },
+          where: unreadWhere,
         });
 
-        // Determine other party
         const isSellerSide = Number(c.seller_id) === userId;
         const other_user = isSellerSide ? c.buyer : c.seller;
 
@@ -263,6 +248,15 @@ exports.getMyConversations = async (req, res) => {
           other_user?.full_name ||
           (isSellerSide ? "Buyer" : "Seller");
 
+        console.log("========== UNREAD DEBUG ==========");
+        console.log("Conversation ID:", c.id);
+        console.log("Logged-in user ID:", userId);
+        console.log("Buyer ID:", c.buyer_id);
+        console.log("Seller ID:", c.seller_id);
+        console.log("Latest message:", c.messages?.[0] || null);
+        console.log("Unread count:", unread_count);
+        console.log("==================================");
+
         return {
           id: c.id,
           buyer_id: c.buyer_id,
@@ -270,15 +264,10 @@ exports.getMyConversations = async (req, res) => {
           listing_id: c.listing_id,
           created_at: c.created_at,
           updated_at: c.updated_at,
-
           buyer: c.buyer,
           seller: c.seller,
           listing: c.listing,
-
-          // Latest message (already ordered desc + take 1)
           latest_message: c.messages?.[0] || null,
-
-          // Extra for frontend
           other_user,
           other_party,
           unread_count,
@@ -286,14 +275,15 @@ exports.getMyConversations = async (req, res) => {
       })
     );
 
-    // ---------------------------------------------
-    // TOTAL UNREAD (badge-ku direct use)
-    // ---------------------------------------------
-
     const total_unread = enriched.reduce(
-      (sum, c) => sum + (c.unread_count || 0),
+      (sum, conversation) =>
+        sum + Number(conversation.unread_count || 0),
       0
     );
+
+    console.log("USER ID:", userId);
+    console.log("TOTAL CONVERSATIONS:", enriched.length);
+    console.log("TOTAL UNREAD:", total_unread);
 
     return res.json({
       success: true,
@@ -302,18 +292,16 @@ exports.getMyConversations = async (req, res) => {
       conversations: enriched,
     });
   } catch (error) {
-    console.log("=================================");
-    console.log("❌ GET CONVERSATIONS ERROR");
-    console.log("MESSAGE:", error?.message);
-    console.log("=================================");
+    console.error("GET CONVERSATIONS ERROR:", error);
 
     return res.status(500).json({
       success: false,
       message: "Unable to fetch conversations",
-      error: error?.message,
+      error: error.message,
     });
   }
 };
+
 // =====================================================
 // MARK CONVERSATION AS READ
 // PATCH /api/conversations/:id/read
