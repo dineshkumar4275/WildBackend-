@@ -1,25 +1,237 @@
 
+// const prisma = require("../prisma");
+
+// // =====================================================
+// // CHECK CONVERSATION ACCESS
+// // =====================================================
+
+// const getConversationForUser = async (
+//   conversationId,
+//   userId
+// ) => {
+//   return prisma.conversations.findFirst({
+//     where: {
+//       id: String(conversationId),
+
+//       OR: [
+//         {
+//           buyer_id: Number(userId),
+//         },
+//         {
+//           seller_id: Number(userId),
+//         },
+//       ],
+//     },
+//   });
+// };
+
+// // =====================================================
+// // GET MESSAGES
+// // GET /api/messages/:conversationId
+// // =====================================================
+
+// exports.getMessages = async (req, res) => {
+//   try {
+//     const userId = Number(req.user.id);
+//     const conversationId = String(
+//       req.params.conversationId || ""
+//     );
+
+//     if (!userId) {
+//       return res.status(401).json({
+//         success: false,
+//         message: "Authentication required",
+//       });
+//     }
+
+//     if (!conversationId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Conversation ID is required",
+//       });
+//     }
+
+//     const conversation =
+//       await getConversationForUser(
+//         conversationId,
+//         userId
+//       );
+
+//     if (!conversation) {
+//       return res.status(403).json({
+//         success: false,
+//         message: "You are not part of this conversation",
+//       });
+//     }
+
+//     const messages =
+//       await prisma.messages.findMany({
+//         where: {
+//           conversation_id: conversationId,
+//         },
+
+//         orderBy: {
+//           created_at: "asc",
+//         },
+
+//         include: {
+//           sender: {
+//             select: {
+//               id: true,
+//               name: true,
+//               full_name: true,
+//             },
+//           },
+//         },
+//       });
+
+//     // ---------------------------------------------
+//     // Mark messages from other user as read
+//     // ---------------------------------------------
+
+//     await prisma.messages.updateMany({
+//       where: {
+//         conversation_id: conversationId,
+//         sender_id: {
+//           not: userId,
+//         },
+//         is_read: false,
+//       },
+
+//       data: {
+//         is_read: true,
+//       },
+//     });
+
+//     return res.json({
+//       success: true,
+//       count: messages.length,
+//       messages,
+//     });
+//   } catch (error) {
+//     console.log("=================================");
+//     console.log("❌ GET MESSAGES ERROR");
+//     console.log("MESSAGE:", error?.message);
+//     console.log("=================================");
+
+//     return res.status(500).json({
+//       success: false,
+//       message: "Unable to fetch messages",
+//       error: error?.message,
+//     });
+//   }
+// };
+
+// // =====================================================
+// // SEND MESSAGE
+// // POST /api/messages/:conversationId
+// // =====================================================
+
+// exports.sendMessage = async (req, res) => {
+//   try {
+//     const userId = Number(req.user.id);
+//     const conversationId = req.params.conversationId || req.body.conversation_id;
+//     const messageText = String(req.body.message || "").trim();
+
+//     if (!userId) {
+//       return res.status(401).json({
+//         success: false,
+//         message: "Authentication required",
+//       });
+//     }
+
+//     if (!conversationId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Conversation ID required",
+//       });
+//     }
+
+//     if (!messageText) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Message required",
+//       });
+//     }
+
+//     // ---------------------------------------------
+//     // Verify user is part of conversation
+//     // ---------------------------------------------
+
+//     const conv = await prisma.conversations.findUnique({
+//       where: { id: conversationId },
+//       select: { buyer_id: true, seller_id: true },
+//     });
+
+//     if (!conv) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Conversation not found",
+//       });
+//     }
+
+//     const isParticipant =
+//       Number(conv.buyer_id) === userId ||
+//       Number(conv.seller_id) === userId;
+
+//     if (!isParticipant) {
+//       return res.status(403).json({
+//         success: false,
+//         message: "Not part of this conversation",
+//       });
+//     }
+
+//     // ---------------------------------------------
+//     // ✅ Create message with is_read: true
+//     // (Sender already "read" their own message)
+//     // ---------------------------------------------
+
+//     const newMessage = await prisma.messages.create({
+//       data: {
+//         conversation_id: conversationId,
+//         sender_id: userId,
+//         message: messageText,
+//         is_read: true,     // ✅ IDHU
+//       },
+//     });
+
+//     // Update conversation updated_at
+//     await prisma.conversations.update({
+//       where: { id: conversationId },
+//       data: { updated_at: new Date() },
+//     });
+
+//     console.log("✅ MESSAGE SENT:", newMessage.id, "is_read: true");
+
+//     return res.status(201).json({
+//       success: true,
+//       message: "Message sent",
+//       data: newMessage,
+//     });
+//   } catch (error) {
+//     console.log("❌ SEND MESSAGE ERROR:", error?.message);
+
+//     return res.status(500).json({
+//       success: false,
+//       message: "Unable to send message",
+//       error: error?.message,
+//     });
+//   }
+// };
+
 const prisma = require("../prisma");
 
 // =====================================================
 // CHECK CONVERSATION ACCESS
 // =====================================================
 
-const getConversationForUser = async (
-  conversationId,
-  userId
-) => {
+const getConversationForUser = async (conversationId, userId) => {
   return prisma.conversations.findFirst({
     where: {
       id: String(conversationId),
-
       OR: [
-        {
-          buyer_id: Number(userId),
-        },
-        {
-          seller_id: Number(userId),
-        },
+        { buyer_id: Number(userId) },
+        { seller_id: Number(userId) },
       ],
     },
   });
@@ -51,11 +263,10 @@ exports.getMessages = async (req, res) => {
       });
     }
 
-    const conversation =
-      await getConversationForUser(
-        conversationId,
-        userId
-      );
+    const conversation = await getConversationForUser(
+      conversationId,
+      userId
+    );
 
     if (!conversation) {
       return res.status(403).json({
@@ -64,32 +275,28 @@ exports.getMessages = async (req, res) => {
       });
     }
 
-    const messages =
-      await prisma.messages.findMany({
-        where: {
-          conversation_id: conversationId,
-        },
-
-        orderBy: {
-          created_at: "asc",
-        },
-
-        include: {
-          sender: {
-            select: {
-              id: true,
-              name: true,
-              full_name: true,
-            },
+    // Fetch messages before marking received messages as read.
+    const messages = await prisma.messages.findMany({
+      where: {
+        conversation_id: conversationId,
+      },
+      orderBy: {
+        created_at: "asc",
+      },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            name: true,
+            full_name: true,
           },
         },
-      });
+      },
+    });
 
-    // ---------------------------------------------
-    // Mark messages from other user as read
-    // ---------------------------------------------
-
-    await prisma.messages.updateMany({
+    // Opening a conversation marks the other person's
+    // messages as read for the current user.
+    const result = await prisma.messages.updateMany({
       where: {
         conversation_id: conversationId,
         sender_id: {
@@ -97,27 +304,29 @@ exports.getMessages = async (req, res) => {
         },
         is_read: false,
       },
-
       data: {
         is_read: true,
       },
     });
 
-    return res.json({
+    console.log("========== MARK MESSAGES READ ==========");
+    console.log("Conversation:", conversationId);
+    console.log("Current user:", userId);
+    console.log("Messages marked read:", result.count);
+    console.log("========================================");
+
+    return res.status(200).json({
       success: true,
       count: messages.length,
       messages,
     });
   } catch (error) {
-    console.log("=================================");
-    console.log("❌ GET MESSAGES ERROR");
-    console.log("MESSAGE:", error?.message);
-    console.log("=================================");
+    console.error("GET MESSAGES ERROR:", error);
 
     return res.status(500).json({
       success: false,
       message: "Unable to fetch messages",
-      error: error?.message,
+      error: error.message,
     });
   }
 };
@@ -130,8 +339,16 @@ exports.getMessages = async (req, res) => {
 exports.sendMessage = async (req, res) => {
   try {
     const userId = Number(req.user.id);
-    const conversationId = req.params.conversationId || req.body.conversation_id;
-    const messageText = String(req.body.message || "").trim();
+
+    const conversationId = String(
+      req.params.conversationId ||
+      req.body.conversation_id ||
+      ""
+    );
+
+    const messageText = String(
+      req.body.message || ""
+    ).trim();
 
     if (!userId) {
       return res.status(401).json({
@@ -154,54 +371,57 @@ exports.sendMessage = async (req, res) => {
       });
     }
 
-    // ---------------------------------------------
-    // Verify user is part of conversation
-    // ---------------------------------------------
-
-    const conv = await prisma.conversations.findUnique({
-      where: { id: conversationId },
-      select: { buyer_id: true, seller_id: true },
-    });
-
-    if (!conv) {
-      return res.status(404).json({
+    if (messageText.length > 2000) {
+      return res.status(400).json({
         success: false,
-        message: "Conversation not found",
+        message: "Message cannot exceed 2000 characters",
       });
     }
 
-    const isParticipant =
-      Number(conv.buyer_id) === userId ||
-      Number(conv.seller_id) === userId;
+    // Verify that the conversation exists and the user
+    // is either the buyer or the seller.
+    const conversation = await getConversationForUser(
+      conversationId,
+      userId
+    );
 
-    if (!isParticipant) {
+    if (!conversation) {
       return res.status(403).json({
         success: false,
-        message: "Not part of this conversation",
+        message: "Conversation not found or access denied",
       });
     }
 
-    // ---------------------------------------------
-    // ✅ Create message with is_read: true
-    // (Sender already "read" their own message)
-    // ---------------------------------------------
-
+    // IMPORTANT:
+    // The newly sent message starts as unread.
+    // The recipient's conversation count will include it.
+    // The sender's own message is excluded by sender_id
+    // in the unread-count query in conversations.controller.js.
     const newMessage = await prisma.messages.create({
       data: {
         conversation_id: conversationId,
         sender_id: userId,
         message: messageText,
-        is_read: true,     // ✅ IDHU
+        is_read: false,
       },
     });
 
-    // Update conversation updated_at
+    // Update conversation activity timestamp.
     await prisma.conversations.update({
-      where: { id: conversationId },
-      data: { updated_at: new Date() },
+      where: {
+        id: conversationId,
+      },
+      data: {
+        updated_at: new Date(),
+      },
     });
 
-    console.log("✅ MESSAGE SENT:", newMessage.id, "is_read: true");
+    console.log("========== MESSAGE SENT ==========");
+    console.log("Message ID:", newMessage.id);
+    console.log("Conversation:", conversationId);
+    console.log("Sender:", userId);
+    console.log("is_read:", newMessage.is_read);
+    console.log("==================================");
 
     return res.status(201).json({
       success: true,
@@ -209,12 +429,12 @@ exports.sendMessage = async (req, res) => {
       data: newMessage,
     });
   } catch (error) {
-    console.log("❌ SEND MESSAGE ERROR:", error?.message);
+    console.error("SEND MESSAGE ERROR:", error);
 
     return res.status(500).json({
       success: false,
       message: "Unable to send message",
-      error: error?.message,
+      error: error.message,
     });
   }
 };
